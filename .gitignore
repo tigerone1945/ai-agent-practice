@@ -15,3 +15,6 @@ wheels/
 # Ruff cache
 .ruff_cache/
 
+# Session database (runtime-generated)
+data/conversations.db
+

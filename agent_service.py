@@ -3,12 +3,22 @@ from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 from pydantic import BaseModel
-from agents import Agent, Runner
+
+from agents import (
+    Agent,
+    Runner,
+    SQLiteSession,
+    trace,
+)
 from agents.decorators import tool
 
 load_dotenv()
 
 CSV_PATH = Path("data/ai_agent_practice_sales.csv")
+
+SESSION_DB_PATH = Path(
+    "data/conversations.db"
+)
 
 class SalesAnalysisResult(BaseModel):
     question: str
@@ -98,6 +108,10 @@ agent = Agent(
 売上集計は自分で計算せず、
 必ずToolの結果を使用してください。
 
+会話履歴がある場合は、
+直前までの質問と回答を踏まえて
+Follow-upの質問に回答してください。
+
 最終結果はSalesAnalysisResultの形式で返してください。
 
 analysis_typeには、
@@ -117,14 +131,25 @@ next_actionには、
     output_type=SalesAnalysisResult,
 )
 
-question = "カテゴリ別の売上を分析してください。"
 
-result = Runner.run_sync(
-    agent,
-    question,
-)
+def run_sales_agent(
+    question: str,
+    session_id: str,
+) -> SalesAnalysisResult:
 
-output = result.final_output
+    session = SQLiteSession(
+        session_id,
+        str(SESSION_DB_PATH),
+    )
 
-print(output)
-print(output.model_dump())
+    with trace(
+        workflow_name="sales_analysis_chat",
+        group_id=session_id,
+    ):
+        result = Runner.run_sync(
+            agent,
+            question,
+            session=session,
+        )
+
+    return result.final_output
